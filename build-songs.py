@@ -6,7 +6,13 @@ Run this when Laufey releases something new:  python3 build-songs.py
 import json, re, urllib.request
 
 ARTIST_ID = 1504424880  # Laufey
-URL = f"https://itunes.apple.com/lookup?id={ARTIST_ID}&entity=song&limit=200&country=US"
+URLS = [
+    f"https://itunes.apple.com/lookup?id={ARTIST_ID}&entity=song&limit=400&country=US",
+    # The Lofi Collection sits outside the main catalogue listing, so ask for it directly.
+    "https://itunes.apple.com/search?term=laufey+lofi&entity=song&limit=50&country=US",
+]
+
+LOFI = re.compile(r'\(lofi version\)', re.I)
 
 # Versions that would either duplicate a song or make it unfairly hard to name.
 BAD_COLLECTION = re.compile(r'instrumental|sped up|remix', re.I)
@@ -37,27 +43,43 @@ def tidy(text):
     return re.sub(r'\s*-\s*(Single|EP|Live).*$', '', text, flags=re.I).strip()
 
 
-with urllib.request.urlopen(URL) as r:
-    results = json.load(r)['results']
+results = {}
+for url in URLS:
+    with urllib.request.urlopen(url) as r:
+        for t in json.load(r)['results']:
+            if t.get('wrapperType') == 'track' or t.get('kind') == 'song':
+                results[t.get('trackId')] = t
+results = list(results.values())
 
-best = {}
+best, lofi = {}, {}
 for t in results:
-    if t.get('wrapperType') != 'track' or not t.get('previewUrl'): continue
-    if 'Laufey' not in t['artistName']: continue          # drop tracks where she only features
+    if not t.get('previewUrl'): continue
+    if t['artistName'] != 'Laufey' and 'Laufey' not in t['artistName']: continue
+    key = norm(t['trackName'])
+    if not key: continue
+    # Lofi cuts are alternate takes of songs already in the pool, not new answers.
+    if LOFI.search(t['trackName']):
+        if key not in lofi: lofi[key] = t['previewUrl']
+        continue
     if BAD_TRACK.search(t['trackName']): continue
     if BAD_COLLECTION.search(t['collectionName']): continue
-    key = norm(t['trackName'])
-    if key and (key not in best or score(t) < score(best[key])):
+    if key not in best or score(t) < score(best[key]):
         best[key] = t
 
-songs = sorted(({
-    'title': tidy(t['trackName']),
-    'artist': t['artistName'],
-    'album': tidy(t['collectionName']),
-    'year': t['releaseDate'][:4],
-    'art': t['artworkUrl100'].replace('100x100', '400x400'),
-    'preview': t['previewUrl'],
-} for t in best.values()), key=lambda s: s['title'].lower())
+def entry(key, t):
+    s = {
+        'title': tidy(t['trackName']),
+        'artist': t['artistName'],
+        'album': tidy(t['collectionName']),
+        'year': t['releaseDate'][:4],
+        'art': t['artworkUrl100'].replace('100x100', '400x400'),
+        'preview': t['previewUrl'],
+    }
+    if key in lofi:            # same answer, different arrangement — used by insane mode
+        s['lofi'] = lofi[key]
+    return s
+
+songs = sorted((entry(k, t) for k, t in best.items()), key=lambda s: s['title'].lower())
 
 with open('songs.js', 'w') as f:
     f.write('const SONGS = ' + json.dumps(songs, ensure_ascii=False, separators=(',', ':')) + ';\n')

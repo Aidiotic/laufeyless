@@ -53,6 +53,9 @@
     padding:7px 16px;border-radius:999px;cursor:pointer;color:var(--ink-soft);transition:.18s;letter-spacing:.02em
   }
   .mode[aria-pressed="true"]{background:var(--plum);color:#FFF6E9;box-shadow:0 2px 8px rgba(90,46,77,.25)}
+  .mode.insane[aria-pressed="true"]{background:linear-gradient(135deg,#8A2F3F,#B4535D);box-shadow:0 2px 10px rgba(138,47,63,.35)}
+  .tick.fast{font-size:8.5px}
+  .ticks.dense .tick{font-size:8.5px;letter-spacing:-.01em}
 
   .card{background:rgba(255,255,255,.72);border:1px solid var(--line);border-radius:18px;
     padding:18px;box-shadow:var(--shadow);backdrop-filter:blur(6px)}
@@ -238,6 +241,7 @@
   <div class="modes">
     <button class="mode" id="modeDaily" aria-pressed="true">Daily</button>
     <button class="mode" id="modeEndless" aria-pressed="false">Endless</button>
+    <button class="mode insane" id="modeInsane" aria-pressed="false">Insane ^</button>
   </div>
 
   <div class="card">
@@ -302,6 +306,7 @@
     <li>Clip lengths: <b>1s → 2s → 4s → 7s → 11s → 16s</b></li>
     <li>Six tries. A wrong guess or a skip unlocks the next length.</li>
     <li><b>Daily</b> gives everyone the same song, changing at midnight. <b>Endless</b> is random, forever.</li>
+    <li><b>Insane <span class="cheat">^</span></b> shrinks the ladder to <b>0.1 → 0.5 → 0.6 → 1 → 1.2 → 1.5 → 2s</b> across seven tries, pays roughly triple, and swaps in the <b>Lofi Versions</b> where they exist — same answer, different arrangement. Wins there are tagged <span class="cheat">^</span>.</li>
     <li>Stuck? <b>Reveal first letters</b> shows the opening letters of the title — never a whole word, so you still have to place it. Costs 25 points and tags your win with <span class="cheat">&amp;*</span>.</li>
     <li>Solving faster scores more: <b>100 / 80 / 60 / 45 / 30 / 20</b> points by clip length. Runs are ranked on the leaderboard (♔).</li>
   </ol>
@@ -337,8 +342,15 @@
 <script>
 (function(){
   'use strict';
-  const STEPS = [1, 2, 4, 7, 11, 16];
-  const MAX = STEPS[STEPS.length - 1];
+  const NORMAL = [1, 2, 4, 7, 11, 16];
+  const LADDERS = { daily:NORMAL, endless:NORMAL, insane:[0.1, 0.5, 0.6, 1, 1.2, 1.5, 2] };
+  const POINTS = {
+    daily:   [100, 80, 60, 45, 30, 20],
+    endless: [100, 80, 60, 45, 30, 20],
+    insane:  [300, 240, 190, 150, 115, 85, 60]
+  };
+  let STEPS = NORMAL;                       // ladder for the mode in play
+  const MAX = () => STEPS[STEPS.length - 1];
   const EPOCH = Date.UTC(2026, 0, 1);
   const $ = id => document.getElementById(id);
 
@@ -348,7 +360,7 @@
     skipBtn:$('skipBtn'), submitBtn:$('submitBtn'), gameArea:$('gameArea'), result:$('result'),
     verdict:$('verdict'), art:$('art'), rTitle:$('rTitle'), rMeta:$('rMeta'), fullAudio:$('fullAudio'),
     shareBtn:$('shareBtn'), nextBtn:$('nextBtn'), toast:$('toast'),
-    modeDaily:$('modeDaily'), modeEndless:$('modeEndless'),
+    modeDaily:$('modeDaily'), modeEndless:$('modeEndless'), modeInsane:$('modeInsane'),
     hintBtn:$('hintBtn'), hintWord:$('hintWord'), board:$('board'), boardNote:$('boardNote'),
     vol:$('vol'), volBtn:$('volBtn'), volRange:$('volRange')
   };
@@ -409,15 +421,19 @@
     const day = dayNumber();
     const idx = mode === 'daily' ? dailyIndex(day)
               : Math.floor(Math.random() * SONGS.length);
-    S = { mode, day, idx, rows:[], done:false, won:false, hint:false };
+    S = { mode, day, idx, rows:[], done:false, won:false, hint:false, lofi:false };
     if (restore) Object.assign(S, restore, { mode:'daily', day, idx });
-    audio.src = SONGS[S.idx].preview;
+    STEPS = LADDERS[S.mode];
+    // Insane plays the lofi cut when one exists — same answer, harder to place.
+    S.lofi = S.mode === 'insane' && !!SONGS[S.idx].lofi;
+    audio.src = S.lofi ? SONGS[S.idx].lofi : SONGS[S.idx].preview;
     audio.load();
     render();
   }
 
   const stage = () => Math.min(S.rows.length, STEPS.length - 1);
   const limit = () => STEPS[stage()];
+  const round1 = n => Math.round(n * 10) / 10;   // the insane ladder is all fractions
 
   // Opening letters of the title — never a whole word, so "Fragile" gives
   // "Fr…" rather than the answer. A leading article is shown but skipped
@@ -449,9 +465,12 @@
   // Fewer seconds is worth more; the hint costs a flat 25.
   function scoreOf(st){
     if (!st.won) return 0;
-    const base = [100, 80, 60, 45, 30, 20][st.rows.length - 1] || 0;
+    const base = (POINTS[st.mode] || POINTS.daily)[st.rows.length - 1] || 0;
     return Math.max(0, base - (st.hint ? 25 : 0));
   }
+
+  // ^ marks an insane run — the bunny's ears.
+  const tags = st => (st.hint ? ' &*' : '') + (st.mode === 'insane' ? ' ^' : '');
 
   // ---- rendering ----
   function render(){
@@ -460,27 +479,33 @@
       const r = S.rows[i], d = document.createElement('div');
       d.className = 'row ' + (r ? r.kind : (i === S.rows.length && !S.done ? 'active empty' : 'empty'));
       const mark = r ? (r.kind === 'right' ? '✓' : r.kind === 'skip' ? '›' : '✕') : '';
-      const body = r ? (r.kind === 'skip' ? 'Skipped' : escapeHtml(r.text) +
-        (r.hint ? ' <span class="cheat">&amp;*</span>' : '')) : '·';
+      const marks = r && r.kind === 'right'
+        ? (r.hint ? ' <span class="cheat">&amp;*</span>' : '') +
+          (S.mode === 'insane' ? ' <span class="cheat">^</span>' : '')
+        : '';
+      const body = r ? (r.kind === 'skip' ? 'Skipped' : escapeHtml(r.text) + marks) : '·';
       d.innerHTML = '<span class="mark">' + mark + '</span><span class="txt">' + body + '</span>';
       el.guesses.appendChild(d);
     }
 
-    const lim = S.done ? MAX : limit();
-    el.unlocked.style.width = (lim / MAX * 100) + '%';
+    const lim = S.done ? MAX() : limit();
+    el.unlocked.style.width = (lim / MAX() * 100) + '%';
+    el.ticks.className = 'ticks' + (S.mode === 'insane' ? ' dense' : '');
     el.ticks.innerHTML = STEPS.map(s =>
-      '<span class="tick' + (s <= lim ? ' on' : '') + '" style="left:' + (s / MAX * 100) + '%">' + s + 's</span>'
+      '<span class="tick' + (s <= lim ? ' on' : '') + '" style="left:' + (s / MAX() * 100) + '%">' +
+      s + (S.mode === 'insane' ? '' : 's') + '</span>'
     ).join('');
     el.time.textContent = '0.0 / ' + lim.toFixed(1) + 's';
     el.hint.innerHTML = S.done ? 'Full 30s preview below'
       : (STEPS.length - S.rows.length) + ' ' + (STEPS.length - S.rows.length === 1 ? 'try' : 'tries') + ' left';
 
     el.skipBtn.textContent = S.rows.length >= STEPS.length - 1
-      ? 'Give up' : 'Skip (+' + (STEPS[stage() + 1] - lim) + 's)';
+      ? 'Give up' : 'Skip (+' + round1(STEPS[stage() + 1] - lim) + 's)';
     showHint();
 
     el.modeDaily.setAttribute('aria-pressed', S.mode === 'daily');
     el.modeEndless.setAttribute('aria-pressed', S.mode === 'endless');
+    el.modeInsane.setAttribute('aria-pressed', S.mode === 'insane');
     el.nextBtn.style.display = S.mode === 'daily' ? 'none' : '';
   }
 
@@ -492,21 +517,24 @@
     audio.pause(); playing = false;
     el.playBtn.textContent = '▶';
     el.played.style.width = '0%';
-    el.time.textContent = '0.0 / ' + (S ? (S.done ? MAX : limit()) : STEPS[0]).toFixed(1) + 's';
+    el.time.textContent = '0.0 / ' + (S ? (S.done ? MAX() : limit()) : STEPS[0]).toFixed(1) + 's';
   }
 
   function playClip(){
     if (playing) { stopClip(); return; }
-    const lim = S.done ? MAX : limit();
+    const lim = S.done ? MAX() : limit();
     audio.currentTime = 0;
     audio.play().then(() => {
       playing = true;
       el.playBtn.textContent = '❚❚';
-      playTimer = setTimeout(stopClip, lim * 1000 + 60);
+      // A tenth-of-a-second clip can't absorb a fixed timer fudge, so the frame
+      // loop does the cutting and the timer is only a backstop.
+      playTimer = setTimeout(stopClip, lim * 1000 + 150);
       const tick = () => {
         if (!playing) return;
+        if (audio.currentTime >= lim){ stopClip(); return; }
         const t = Math.min(audio.currentTime, lim);
-        el.played.style.width = (t / MAX * 100) + '%';
+        el.played.style.width = (t / MAX() * 100) + '%';
         el.time.textContent = t.toFixed(1) + ' / ' + lim.toFixed(1) + 's';
         raf = requestAnimationFrame(tick);
       };
@@ -570,19 +598,25 @@
     else { render(); save(); setTimeout(playClip, 220); }
   }
 
+  function verdict(){
+    const lines = S.mode === 'insane'
+      ? ['Inhuman.','Absurd.','Frighteningly good.','Sharp.','Got there.','Down to the wire.','Phew — last try.']
+      : ['Perfect ear.','Nailed it.','Lovely.','Got there.','Just in time.','Phew — last try.'];
+    return lines[S.rows.length - 1] || 'Got there.';
+  }
+
   function finish(won){
     S.done = true; S.won = won;
     const song = SONGS[S.idx];
     render();
     el.gameArea.style.display = 'none';
     el.result.classList.add('show');
-    el.verdict.textContent = won
-      ? ['Perfect ear.','Nailed it.','Lovely.','Got there.','Just in time.','Phew — last try.'][S.rows.length - 1]
-      : 'Not this time.';
+    el.verdict.textContent = won ? verdict() : 'Not this time.';
     el.art.src = song.art; el.art.alt = song.album + ' cover art';
     el.rTitle.textContent = song.title;
-    el.rMeta.textContent = song.artist + ' · ' + song.album + ' · ' + song.year;
-    el.fullAudio.src = song.preview;
+    el.rMeta.textContent = song.artist + ' · ' + song.album + ' · ' + song.year +
+      (S.lofi ? ' · you heard the Lofi Version' : '');
+    el.fullAudio.src = S.lofi ? song.lofi : song.preview;
 
     const fresh = S.mode === 'endless' || stats.lastDay !== S.day;
     if (S.mode === 'daily' && fresh){
@@ -626,6 +660,7 @@
       secs: S.won ? STEPS[S.rows.length - 1] : null,
       tries: S.rows.length,
       hint: !!S.hint,
+      lofi: !!S.lofi,
       won: !!S.won,
       mode: S.mode,
       at: Date.now()
@@ -644,16 +679,18 @@
     el.board.innerHTML = board.map((b, n) =>
       '<div class="lb' + (n < 3 ? ' top' : '') + '">' +
         '<div class="rank">' + (n + 1) + '</div>' +
-        '<div class="who"><b>' + escapeHtml(b.title) + (b.hint ? ' <span class="cheat">&amp;*</span>' : '') + '</b>' +
+        '<div class="who"><b>' + escapeHtml(b.title) + (b.hint ? ' <span class="cheat">&amp;*</span>' : '') +
+        (b.mode === 'insane' ? ' <span class="cheat">^</span>' : '') + '</b>' +
         '<span>' + (b.won ? 'solved at ' + b.secs + 's · ' + b.tries + (b.tries === 1 ? ' try' : ' tries') : 'missed') +
-        ' · ' + b.mode + '</span></div>' +
+        ' · ' + b.mode + (b.lofi ? ' · lofi' : '') + '</span></div>' +
         '<div class="pts">' + b.pts + '</div>' +
       '</div>').join('');
     const solved = board.filter(b => b.won);
     el.boardNote.innerHTML = board.length + ' run' + (board.length === 1 ? '' : 's') + ' · ' +
       'total ' + board.reduce((a, b) => a + b.pts, 0) + ' pts' +
       (solved.length ? ' · best ' + Math.min(...solved.map(b => b.secs)) + 's' : '') +
-      '<br>Scores are kept on this device. <span class="cheat">&amp;*</span> means the letter hint was used.';
+      '<br>Scores are kept on this device. <span class="cheat">&amp;*</span> = letter hint used, ' +
+      '<span class="cheat">^</span> = insane mode.';
   }
 
   // A plain-text report worth pasting into a chat.
@@ -666,9 +703,11 @@
     L.push('Guess distribution (tries 1-6): ' + stats.dist.join(', '));
     if (S && S.done){
       L.push('');
-      L.push('Latest: ' + (S.mode === 'daily' ? 'Daily #' + S.day : 'Endless') + ' — ' + SONGS[S.idx].title);
+      L.push('Latest: ' + (S.mode === 'daily' ? 'Daily #' + S.day
+        : S.mode === 'insane' ? 'Insane ^' : 'Endless') + ' — ' + SONGS[S.idx].title +
+        (S.lofi ? ' (Lofi Version)' : ''));
       L.push('  ' + (S.won ? 'solved at ' + STEPS[S.rows.length - 1] + 's in ' + S.rows.length +
-        (S.rows.length === 1 ? ' try' : ' tries') : 'not solved') + (S.hint ? ' (used letter hint, &*)' : ''));
+        (S.rows.length === 1 ? ' try' : ' tries') : 'not solved') + tags(S));
       L.push('  ' + S.rows.map(r => r.kind === 'right' ? '🟩' : r.kind === 'skip' ? '⬜' : '🟥').join('') +
         '⬛'.repeat(Math.max(0, STEPS.length - S.rows.length)));
     }
@@ -676,13 +715,14 @@
       L.push('');
       L.push('Top runs:');
       board.slice(0, 10).forEach((b, n) => L.push('  ' + (n + 1) + '. ' + b.pts + ' pts — ' + b.title +
-        (b.won ? ' (' + b.secs + 's)' : ' (missed)') + (b.hint ? ' &*' : '')));
+        (b.lofi ? ' (Lofi)' : '') + (b.won ? ' (' + b.secs + 's)' : ' (missed)') + tags(b)));
       L.push('');
       L.push('Total: ' + board.reduce((a, b) => a + b.pts, 0) + ' pts across ' +
         board.length + (board.length === 1 ? ' run.' : ' runs.'));
     }
     L.push('');
     L.push('(&* = the opening letters of the title were revealed before guessing)');
+    L.push('(^  = insane mode: clips from 0.1s to 2s, and lofi cuts in the pool)');
     return L.join('\n');
   }
 
@@ -694,8 +734,9 @@
   function shareText(){
     const squares = S.rows.map(r => r.kind === 'right' ? '🟩' : r.kind === 'skip' ? '⬜' : '🟥').join('');
     const pad = '⬛'.repeat(Math.max(0, STEPS.length - S.rows.length));
-    const label = S.mode === 'daily' ? 'Laufeyless #' + S.day : 'Laufeyless (endless)';
-    return label + ' · ' + (S.won ? STEPS[S.rows.length - 1] + 's' : 'X') + (S.hint ? ' &*' : '') +
+    const label = S.mode === 'daily' ? 'Laufeyless #' + S.day
+                : S.mode === 'insane' ? 'Laufeyless (insane ^)' : 'Laufeyless (endless)';
+    return label + ' · ' + (S.won ? STEPS[S.rows.length - 1] + 's' : 'X') + tags(S) +
       '\n' + squares + pad + '\n' + scoreOf(S) + ' pts · aidiotic.github.io/laufeyless';
   }
 
@@ -746,7 +787,7 @@
       const saved = LS.get('daily', null);
       newGame('daily', saved && saved.day === dayNumber() ? saved : null);
       if (S.done) replayFinish();
-    } else newGame('endless');
+    } else newGame(mode);
   }
 
   function replayFinish(){
@@ -763,7 +804,8 @@
 
   el.modeDaily.addEventListener('click', () => start('daily'));
   el.modeEndless.addEventListener('click', () => start('endless'));
-  el.nextBtn.addEventListener('click', () => start('endless'));
+  el.modeInsane.addEventListener('click', () => start('insane'));
+  el.nextBtn.addEventListener('click', () => start(S.mode === 'daily' ? 'endless' : S.mode));
   $('howBtn').addEventListener('click', () => howDlg.showModal());
   $('statsBtn').addEventListener('click', () => { drawStats(); statsDlg.showModal(); });
 

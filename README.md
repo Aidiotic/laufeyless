@@ -10,8 +10,13 @@ Six tries. A wrong guess or a skip unlocks the next clip length:
 
 `1s → 2s → 4s → 7s → 11s → 16s`
 
-- **Daily** — the same song for everyone, changing at midnight. A seeded permutation means no repeats until all 76 songs have been used.
+- **Daily** — the same song for everyone, changing at midnight. A seeded permutation means no repeats until all 77 songs have been used.
 - **Endless** — random, forever, and it doesn't touch your daily stats.
+- **Insane `^`** — a much tighter ladder over seven tries: `0.1 → 0.5 → 0.6 → 1 → 1.2 → 1.5 → 2s`. Pays roughly triple, and wins are tagged `^`.
+
+### Lofi versions
+
+Four songs have an official *Lofi Version* (Falling Behind, From The Start, I Wish You Love, Valentine). Rather than adding them as separate answers — which would put two near-identical entries in the dropdown and mark a correct-sounding guess wrong — they're wired as **alternate audio for the same answer**. In insane mode those four play their lofi cut instead: same title to guess, different arrangement to recognise. The reveal tells you which one you heard.
 
 ### Volume
 
@@ -33,11 +38,21 @@ It costs 25 points and tags the win with `&*`, on the guess row, the leaderboard
 
 ### Scoring
 
-Points by the clip length you solved at, minus 25 if you took the hint:
+Points by the clip length you solved at, minus 25 if you took the hint.
+
+Normal (daily / endless):
 
 | 1s | 2s | 4s | 7s | 11s | 16s | missed |
 |----|----|----|----|-----|-----|--------|
 | 100 | 80 | 60 | 45 | 30 | 20 | 0 |
+
+Insane `^`:
+
+| 0.1s | 0.5s | 0.6s | 1s | 1.2s | 1.5s | 2s | missed |
+|------|------|------|----|------|------|----|--------|
+| 300 | 240 | 190 | 150 | 115 | 85 | 60 | 0 |
+
+Since insane pays about triple, it dominates the top of the leaderboard — the `^` tag is there so you can tell at a glance which runs were earned the hard way.
 
 ### Leaderboard
 
