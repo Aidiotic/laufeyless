@@ -13,6 +13,10 @@ Six tries. A wrong guess or a skip unlocks the next clip length:
 - **Daily** — the same song for everyone, changing at midnight. A seeded permutation means no repeats until all 76 songs have been used.
 - **Endless** — random, forever, and it doesn't touch your daily stats.
 
+### Volume
+
+A slider sits in the transport row and drives both the clip player and the full-preview player on the reveal screen. The speaker icon toggles mute, dragging to zero mutes, and the level is remembered in `localStorage`. (iOS Safari doesn't allow scripted volume changes on media elements, so there you'll need the hardware buttons.)
+
 ### Hint
 
 **Reveal first word** gives you the first word of the *title* (a leading "A" or "The" comes with the next word attached, since "A" on its own helps nobody). It costs 25 points and tags the win with `&*`, on the guess row, the leaderboard and the shared result — so a hinted solve is always distinguishable from a clean one.
