@@ -13,7 +13,25 @@ Six tries. A wrong guess or a skip unlocks the next clip length:
 - **Daily** — the same song for everyone, changing at midnight. A seeded permutation means no repeats until all 76 songs have been used.
 - **Endless** — random, forever, and it doesn't touch your daily stats.
 
-Streaks, win rate and a guess distribution are kept in `localStorage`. Nothing leaves your browser.
+### Hint
+
+**Reveal first word** gives you the first word of the *title* (a leading "A" or "The" comes with the next word attached, since "A" on its own helps nobody). It costs 25 points and tags the win with `&*`, on the guess row, the leaderboard and the shared result — so a hinted solve is always distinguishable from a clean one.
+
+### Scoring
+
+Points by the clip length you solved at, minus 25 if you took the hint:
+
+| 1s | 2s | 4s | 7s | 11s | 16s | missed |
+|----|----|----|----|-----|-----|--------|
+| 100 | 80 | 60 | 45 | 30 | 20 | 0 |
+
+### Leaderboard
+
+The ♔ button ranks your best 50 runs by score. It's **local to your device** — this is a static site with no backend, so there's no cross-player board. Making it global would mean adding a small serverless store and some abuse handling.
+
+Both the leaderboard and the result screen have a **Copy for Claude** button that dumps a plain-text report — stats, latest result, top runs — ready to paste into a chat.
+
+Streaks, win rate, guess distribution and the leaderboard all live in `localStorage`. Nothing leaves your browser.
 
 ## The music
 

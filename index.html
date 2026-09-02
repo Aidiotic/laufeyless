@@ -114,6 +114,23 @@
   .ac div small{color:var(--ink-soft);font-size:11px;margin-left:6px}
   .ac div.sel,.ac div:hover{background:var(--cream)}
 
+  /* hint */
+  .hintbar{display:flex;align-items:center;gap:10px;margin-top:10px;min-height:30px}
+  .hint-btn{
+    border:1px dashed var(--gold);background:rgba(200,155,63,.09);color:#8A6420;
+    font-family:var(--sans);font-size:12px;font-weight:500;padding:7px 13px;border-radius:9px;
+    cursor:pointer;transition:.16s;white-space:nowrap
+  }
+  .hint-btn:hover{background:rgba(200,155,63,.2)}
+  .hint-btn:disabled{opacity:.4;cursor:not-allowed}
+  .hint-word{
+    font-family:var(--serif);font-size:15px;font-weight:600;color:var(--plum);
+    letter-spacing:.01em;animation:rise .35s ease
+  }
+  .hint-word small{font-family:var(--sans);font-size:10.5px;font-weight:400;color:var(--ink-soft);
+    letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:1px}
+  .cheat{color:var(--gold);font-weight:600;letter-spacing:.04em}
+
   .actions{display:flex;gap:8px;margin-top:10px}
   .btn{
     flex:1;padding:12px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.7);
@@ -145,6 +162,20 @@
     justify-content:flex-end;padding:0 6px;color:var(--ink-soft);font-size:10.5px;transition:width .5s}
   .bar.hi{background:var(--plum);color:#FFF6E9}
 
+  /* leaderboard */
+  .board{max-height:330px;overflow-y:auto;margin:4px -6px 0;padding:0 6px}
+  .lb{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;
+    border:1px solid var(--line);background:rgba(255,255,255,.6);margin-bottom:5px}
+  .lb.top{border-color:var(--gold);background:linear-gradient(90deg,rgba(200,155,63,.14),rgba(255,255,255,.5))}
+  .lb .rank{font-family:var(--serif);font-size:14px;font-weight:600;color:var(--ink-soft);width:22px;flex:0 0 22px}
+  .lb.top .rank{color:var(--gold)}
+  .lb .who{flex:1;min-width:0}
+  .lb .who b{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lb .who span{font-size:10.5px;color:var(--ink-soft)}
+  .lb .pts{font-family:var(--serif);font-size:16px;font-weight:600;color:var(--plum);white-space:nowrap}
+  .empty-board{text-align:center;color:var(--ink-soft);font-size:13px;padding:26px 10px;line-height:1.6}
+  .board-note{font-size:11px;color:var(--ink-soft);text-align:center;margin-top:10px;line-height:1.5}
+
   dialog{border:0;border-radius:18px;padding:26px;max-width:410px;width:calc(100% - 36px);
     background:var(--cream);box-shadow:0 24px 70px rgba(43,27,42,.35);color:var(--ink)}
   dialog::backdrop{background:rgba(43,27,42,.42);backdrop-filter:blur(3px)}
@@ -164,6 +195,7 @@
   <header>
     <div class="toolbar">
       <button class="icon-btn" id="howBtn" title="How to play" aria-label="How to play">?</button>
+      <button class="icon-btn" id="boardBtn" title="Leaderboard" aria-label="Leaderboard">♔</button>
       <button class="icon-btn" id="statsBtn" title="Statistics" aria-label="Statistics">▦</button>
     </div>
     <h1 class="brand">Lauf<em>ey</em>less</h1>
@@ -195,6 +227,10 @@
         <input type="text" id="guess" placeholder="Search a Laufey song…" autocomplete="off"
                autocorrect="off" autocapitalize="off" spellcheck="false">
       </div>
+      <div class="hintbar">
+        <button class="hint-btn" id="hintBtn">✦ Reveal first word</button>
+        <div class="hint-word" id="hintWord" hidden></div>
+      </div>
       <div class="actions">
         <button class="btn" id="skipBtn">Skip (+1s)</button>
         <button class="btn primary" id="submitBtn" disabled>Submit</button>
@@ -211,6 +247,9 @@
         <button class="btn primary" id="shareBtn">Share result</button>
         <button class="btn" id="nextBtn">Next song</button>
       </div>
+      <div class="actions">
+        <button class="btn" id="claudeBtn" style="flex:1">📋 Copy full report for Claude</button>
+      </div>
     </div>
   </div>
 
@@ -226,6 +265,8 @@
     <li>Clip lengths: <b>1s → 2s → 4s → 7s → 11s → 16s</b></li>
     <li>Six tries. A wrong guess or a skip unlocks the next length.</li>
     <li><b>Daily</b> gives everyone the same song, changing at midnight. <b>Endless</b> is random, forever.</li>
+    <li>Stuck? <b>Reveal first word</b> shows the first word of the title. It costs 25 points and tags your win with <span class="cheat">&amp;*</span>.</li>
+    <li>Solving faster scores more: <b>100 / 80 / 60 / 45 / 30 / 20</b> points by clip length. Runs are ranked on the leaderboard (♔).</li>
   </ol>
   <p>Clips come from Apple's previews, so they usually start at the hook rather than the first note. Consider it a feature.</p>
   <button class="btn close" onclick="howDlg.close()">Got it</button>
@@ -241,6 +282,16 @@
   </div>
   <div class="dist" id="dist"></div>
   <button class="btn close" onclick="statsDlg.close()">Close</button>
+</dialog>
+
+<dialog id="boardDlg">
+  <h2>Leaderboard</h2>
+  <div class="board" id="board"></div>
+  <div class="board-note" id="boardNote"></div>
+  <div class="actions">
+    <button class="btn primary" id="boardShareBtn">📋 Copy for Claude</button>
+    <button class="btn" onclick="boardDlg.close()">Close</button>
+  </div>
 </dialog>
 
 <div class="toast" id="toast"></div>
@@ -260,7 +311,8 @@
     skipBtn:$('skipBtn'), submitBtn:$('submitBtn'), gameArea:$('gameArea'), result:$('result'),
     verdict:$('verdict'), art:$('art'), rTitle:$('rTitle'), rMeta:$('rMeta'), fullAudio:$('fullAudio'),
     shareBtn:$('shareBtn'), nextBtn:$('nextBtn'), toast:$('toast'),
-    modeDaily:$('modeDaily'), modeEndless:$('modeEndless')
+    modeDaily:$('modeDaily'), modeEndless:$('modeEndless'),
+    hintBtn:$('hintBtn'), hintWord:$('hintWord'), board:$('board'), boardNote:$('boardNote')
   };
 
   const norm = s => s.toLowerCase().replace(/[’']/g,"'").replace(/[^a-z0-9']+/g,' ').trim();
@@ -292,7 +344,7 @@
     const day = dayNumber();
     const idx = mode === 'daily' ? dailyIndex(day)
               : Math.floor(Math.random() * SONGS.length);
-    S = { mode, day, idx, rows:[], done:false, won:false };
+    S = { mode, day, idx, rows:[], done:false, won:false, hint:false };
     if (restore) Object.assign(S, restore, { mode:'daily', day, idx });
     audio.src = SONGS[S.idx].preview;
     audio.load();
@@ -302,6 +354,36 @@
   const stage = () => Math.min(S.rows.length, STEPS.length - 1);
   const limit = () => STEPS[stage()];
 
+  // First word of the *title*. Leading articles are useless on their own,
+  // so "A Night To Remember" gives back "A Night".
+  function firstWord(title){
+    const w = title.split(/\s+/);
+    return (/^(a|an|the)$/i.test(w[0]) && w[1]) ? w[0] + ' ' + w[1] : w[0];
+  }
+
+  function revealHint(){
+    if (S.done || S.hint) return;
+    S.hint = true;
+    showHint();
+    save();
+  }
+
+  function showHint(){
+    if (!S.hint){ el.hintWord.hidden = true; el.hintBtn.disabled = false;
+      el.hintBtn.textContent = '✦ Reveal first word'; return; }
+    el.hintBtn.disabled = true;
+    el.hintBtn.textContent = '✦ Hint used';
+    el.hintWord.hidden = false;
+    el.hintWord.innerHTML = '<small>Title starts with</small>' + escapeHtml(firstWord(SONGS[S.idx].title));
+  }
+
+  // Fewer seconds is worth more; the hint costs a flat 25.
+  function scoreOf(st){
+    if (!st.won) return 0;
+    const base = [100, 80, 60, 45, 30, 20][st.rows.length - 1] || 0;
+    return Math.max(0, base - (st.hint ? 25 : 0));
+  }
+
   // ---- rendering ----
   function render(){
     el.guesses.innerHTML = '';
@@ -309,8 +391,9 @@
       const r = S.rows[i], d = document.createElement('div');
       d.className = 'row ' + (r ? r.kind : (i === S.rows.length && !S.done ? 'active empty' : 'empty'));
       const mark = r ? (r.kind === 'right' ? '✓' : r.kind === 'skip' ? '›' : '✕') : '';
-      d.innerHTML = '<span class="mark">' + mark + '</span><span class="txt">' +
-        (r ? (r.kind === 'skip' ? 'Skipped' : escapeHtml(r.text)) : '·') + '</span>';
+      const body = r ? (r.kind === 'skip' ? 'Skipped' : escapeHtml(r.text) +
+        (r.hint ? ' <span class="cheat">&amp;*</span>' : '')) : '·';
+      d.innerHTML = '<span class="mark">' + mark + '</span><span class="txt">' + body + '</span>';
       el.guesses.appendChild(d);
     }
 
@@ -325,6 +408,7 @@
 
     el.skipBtn.textContent = S.rows.length >= STEPS.length - 1
       ? 'Give up' : 'Skip (+' + (STEPS[stage() + 1] - lim) + 's)';
+    showHint();
 
     el.modeDaily.setAttribute('aria-pressed', S.mode === 'daily');
     el.modeEndless.setAttribute('aria-pressed', S.mode === 'endless');
@@ -401,7 +485,7 @@
     const t = chosen || acList[acSel];
     if (!t || S.done) return;
     const right = t.i === S.idx;
-    S.rows.push({ kind: right ? 'right' : 'wrong', text: t.title });
+    S.rows.push({ kind: right ? 'right' : 'wrong', text: t.title, hint: right && S.hint });
     el.guess.value = ''; el.ac.classList.remove('show'); acList = []; chosen = null; el.submitBtn.disabled = true;
     stopClip();
     if (right) finish(true);
@@ -431,13 +515,15 @@
     el.rMeta.textContent = song.artist + ' · ' + song.album + ' · ' + song.year;
     el.fullAudio.src = song.preview;
 
-    if (S.mode === 'daily' && stats.lastDay !== S.day){
+    const fresh = S.mode === 'endless' || stats.lastDay !== S.day;
+    if (S.mode === 'daily' && fresh){
       stats.played++;
       if (won){ stats.wins++; stats.dist[S.rows.length - 1]++; stats.streak++; stats.max = Math.max(stats.max, stats.streak); }
       else stats.streak = 0;
       stats.lastDay = S.day;
       LS.set('stats', stats);
     }
+    if (fresh) recordRun();
     save();
     setTimeout(() => statsDlg.showModal(), 900);
     drawStats();
@@ -461,11 +547,87 @@
       '" style="width:' + (14 + v / top * 78) + '%">' + v + '</div></div>').join('');
   }
 
+  // ---- leaderboard (local: no backend, so these are your own runs, ranked) ----
+  let board = LS.get('board', []);
+
+  function recordRun(){
+    board.push({
+      title: SONGS[S.idx].title,
+      pts: scoreOf(S),
+      secs: S.won ? STEPS[S.rows.length - 1] : null,
+      tries: S.rows.length,
+      hint: !!S.hint,
+      won: !!S.won,
+      mode: S.mode,
+      at: Date.now()
+    });
+    board.sort((a, b) => b.pts - a.pts || a.secs - b.secs || a.at - b.at);
+    board = board.slice(0, 50);
+    LS.set('board', board);
+  }
+
+  function drawBoard(){
+    if (!board.length){
+      el.board.innerHTML = '<div class="empty-board">No runs yet.<br>Finish a song and it lands here.</div>';
+      el.boardNote.textContent = '';
+      return;
+    }
+    el.board.innerHTML = board.map((b, n) =>
+      '<div class="lb' + (n < 3 ? ' top' : '') + '">' +
+        '<div class="rank">' + (n + 1) + '</div>' +
+        '<div class="who"><b>' + escapeHtml(b.title) + (b.hint ? ' <span class="cheat">&amp;*</span>' : '') + '</b>' +
+        '<span>' + (b.won ? 'solved at ' + b.secs + 's · ' + b.tries + (b.tries === 1 ? ' try' : ' tries') : 'missed') +
+        ' · ' + b.mode + '</span></div>' +
+        '<div class="pts">' + b.pts + '</div>' +
+      '</div>').join('');
+    const solved = board.filter(b => b.won);
+    el.boardNote.innerHTML = board.length + ' run' + (board.length === 1 ? '' : 's') + ' · ' +
+      'total ' + board.reduce((a, b) => a + b.pts, 0) + ' pts' +
+      (solved.length ? ' · best ' + Math.min(...solved.map(b => b.secs)) + 's' : '') +
+      '<br>Scores are kept on this device. <span class="cheat">&amp;*</span> means the first-word hint was used.';
+  }
+
+  // A plain-text report worth pasting into a chat.
+  function fullReport(){
+    const L = [];
+    L.push('=== Laufeyless — my results ===');
+    L.push('Stats: ' + stats.played + ' daily played · ' +
+      (stats.played ? Math.round(stats.wins / stats.played * 100) : 0) + '% win rate · ' +
+      'streak ' + stats.streak + ' · best streak ' + stats.max);
+    L.push('Guess distribution (tries 1-6): ' + stats.dist.join(', '));
+    if (S && S.done){
+      L.push('');
+      L.push('Latest: ' + (S.mode === 'daily' ? 'Daily #' + S.day : 'Endless') + ' — ' + SONGS[S.idx].title);
+      L.push('  ' + (S.won ? 'solved at ' + STEPS[S.rows.length - 1] + 's in ' + S.rows.length +
+        (S.rows.length === 1 ? ' try' : ' tries') : 'not solved') + (S.hint ? ' (used first-word hint, &*)' : ''));
+      L.push('  ' + S.rows.map(r => r.kind === 'right' ? '🟩' : r.kind === 'skip' ? '⬜' : '🟥').join('') +
+        '⬛'.repeat(Math.max(0, STEPS.length - S.rows.length)));
+    }
+    if (board.length){
+      L.push('');
+      L.push('Top runs:');
+      board.slice(0, 10).forEach((b, n) => L.push('  ' + (n + 1) + '. ' + b.pts + ' pts — ' + b.title +
+        (b.won ? ' (' + b.secs + 's)' : ' (missed)') + (b.hint ? ' &*' : '')));
+      L.push('');
+      L.push('Total: ' + board.reduce((a, b) => a + b.pts, 0) + ' pts across ' +
+        board.length + (board.length === 1 ? ' run.' : ' runs.'));
+    }
+    L.push('');
+    L.push('(&* = first word of the title was revealed before guessing)');
+    return L.join('\n');
+  }
+
+  async function copy(text, msg){
+    try { await navigator.clipboard.writeText(text); toast(msg); }
+    catch { toast('Copy failed — long-press to select instead.'); }
+  }
+
   function shareText(){
     const squares = S.rows.map(r => r.kind === 'right' ? '🟩' : r.kind === 'skip' ? '⬜' : '🟥').join('');
     const pad = '⬛'.repeat(Math.max(0, STEPS.length - S.rows.length));
     const label = S.mode === 'daily' ? 'Laufeyless #' + S.day : 'Laufeyless (endless)';
-    return label + ' · ' + (S.won ? STEPS[S.rows.length - 1] + 's' : 'X') + '\n' + squares + pad;
+    return label + ' · ' + (S.won ? STEPS[S.rows.length - 1] + 's' : 'X') + (S.hint ? ' &*' : '') +
+      '\n' + squares + pad + '\n' + scoreOf(S) + ' pts · aidiotic.github.io/laufeyless';
   }
 
   function toast(msg){
@@ -499,11 +661,11 @@
     }
   });
 
-  el.shareBtn.addEventListener('click', async () => {
-    const txt = shareText();
-    try { await navigator.clipboard.writeText(txt); toast('Result copied'); }
-    catch { toast(txt.replace('\n', ' ')); }
-  });
+  el.shareBtn.addEventListener('click', () => copy(shareText(), 'Result copied'));
+  $('claudeBtn').addEventListener('click', () => copy(fullReport(), 'Full report copied — paste it to Claude'));
+  $('boardShareBtn').addEventListener('click', () => copy(fullReport(), 'Full report copied — paste it to Claude'));
+  el.hintBtn.addEventListener('click', revealHint);
+  $('boardBtn').addEventListener('click', () => { drawBoard(); boardDlg.showModal(); });
 
   function start(mode){
     stopClip();
