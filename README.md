@@ -19,7 +19,17 @@ A slider sits in the transport row and drives both the clip player and the full-
 
 ### Hint
 
-**Reveal first word** gives you the first word of the *title* (a leading "A" or "The" comes with the next word attached, since "A" on its own helps nobody). It costs 25 points and tags the win with `&*`, on the guess row, the leaderboard and the shared result — so a hinted solve is always distinguishable from a clean one.
+**Reveal first letters** gives you the opening two letters of the title — deliberately never a whole word, so you still have to place the song yourself:
+
+| Title | Hint |
+|-------|------|
+| Fragile | `Fr…` |
+| A Cautionary Tale | `A Ca…` |
+| Hi | `H…` |
+
+A leading "A" or "The" is shown but skipped over, otherwise the hint gets spent on the article. Words shorter than three letters give up one letter rather than all of them. Checked against the whole catalogue: no title's hint spells out the title.
+
+It costs 25 points and tags the win with `&*`, on the guess row, the leaderboard and the shared result — so a hinted solve is always distinguishable from a clean one.
 
 ### Scoring
 

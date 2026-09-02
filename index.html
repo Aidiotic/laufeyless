@@ -265,7 +265,7 @@
                autocorrect="off" autocapitalize="off" spellcheck="false">
       </div>
       <div class="hintbar">
-        <button class="hint-btn" id="hintBtn">✦ Reveal first word</button>
+        <button class="hint-btn" id="hintBtn">✦ Reveal first letters</button>
         <div class="hint-word" id="hintWord" hidden></div>
       </div>
       <div class="actions">
@@ -302,7 +302,7 @@
     <li>Clip lengths: <b>1s → 2s → 4s → 7s → 11s → 16s</b></li>
     <li>Six tries. A wrong guess or a skip unlocks the next length.</li>
     <li><b>Daily</b> gives everyone the same song, changing at midnight. <b>Endless</b> is random, forever.</li>
-    <li>Stuck? <b>Reveal first word</b> shows the first word of the title. It costs 25 points and tags your win with <span class="cheat">&amp;*</span>.</li>
+    <li>Stuck? <b>Reveal first letters</b> shows the opening letters of the title — never a whole word, so you still have to place it. Costs 25 points and tags your win with <span class="cheat">&amp;*</span>.</li>
     <li>Solving faster scores more: <b>100 / 80 / 60 / 45 / 30 / 20</b> points by clip length. Runs are ranked on the leaderboard (♔).</li>
   </ol>
   <p>Clips come from Apple's previews, so they usually start at the hook rather than the first note. Consider it a feature.</p>
@@ -419,11 +419,15 @@
   const stage = () => Math.min(S.rows.length, STEPS.length - 1);
   const limit = () => STEPS[stage()];
 
-  // First word of the *title*. Leading articles are useless on their own,
-  // so "A Night To Remember" gives back "A Night".
-  function firstWord(title){
-    const w = title.split(/\s+/);
-    return (/^(a|an|the)$/i.test(w[0]) && w[1]) ? w[0] + ' ' + w[1] : w[0];
+  // Opening letters of the title — never a whole word, so "Fragile" gives
+  // "Fr…" rather than the answer. A leading article is shown but skipped
+  // over, otherwise "A Cautionary Tale" would spend the hint on "A".
+  function hintText(title){
+    const words = title.split(/\s+/);
+    const i = (/^(an?|the)$/i.test(words[0]) && words.length > 1) ? 1 : 0;
+    const w = words[i];
+    const n = Math.min(2, Math.max(1, w.length - 1));
+    return (i ? words[0] + ' ' : '') + w.slice(0, n) + '…';
   }
 
   function revealHint(){
@@ -435,11 +439,11 @@
 
   function showHint(){
     if (!S.hint){ el.hintWord.hidden = true; el.hintBtn.disabled = false;
-      el.hintBtn.textContent = '✦ Reveal first word'; return; }
+      el.hintBtn.textContent = '✦ Reveal first letters'; return; }
     el.hintBtn.disabled = true;
     el.hintBtn.textContent = '✦ Hint used';
     el.hintWord.hidden = false;
-    el.hintWord.innerHTML = '<small>Title starts with</small>' + escapeHtml(firstWord(SONGS[S.idx].title));
+    el.hintWord.innerHTML = '<small>Title starts with</small>' + escapeHtml(hintText(SONGS[S.idx].title));
   }
 
   // Fewer seconds is worth more; the hint costs a flat 25.
@@ -649,7 +653,7 @@
     el.boardNote.innerHTML = board.length + ' run' + (board.length === 1 ? '' : 's') + ' · ' +
       'total ' + board.reduce((a, b) => a + b.pts, 0) + ' pts' +
       (solved.length ? ' · best ' + Math.min(...solved.map(b => b.secs)) + 's' : '') +
-      '<br>Scores are kept on this device. <span class="cheat">&amp;*</span> means the first-word hint was used.';
+      '<br>Scores are kept on this device. <span class="cheat">&amp;*</span> means the letter hint was used.';
   }
 
   // A plain-text report worth pasting into a chat.
@@ -664,7 +668,7 @@
       L.push('');
       L.push('Latest: ' + (S.mode === 'daily' ? 'Daily #' + S.day : 'Endless') + ' — ' + SONGS[S.idx].title);
       L.push('  ' + (S.won ? 'solved at ' + STEPS[S.rows.length - 1] + 's in ' + S.rows.length +
-        (S.rows.length === 1 ? ' try' : ' tries') : 'not solved') + (S.hint ? ' (used first-word hint, &*)' : ''));
+        (S.rows.length === 1 ? ' try' : ' tries') : 'not solved') + (S.hint ? ' (used letter hint, &*)' : ''));
       L.push('  ' + S.rows.map(r => r.kind === 'right' ? '🟩' : r.kind === 'skip' ? '⬜' : '🟥').join('') +
         '⬛'.repeat(Math.max(0, STEPS.length - S.rows.length)));
     }
@@ -678,7 +682,7 @@
         board.length + (board.length === 1 ? ' run.' : ' runs.'));
     }
     L.push('');
-    L.push('(&* = first word of the title was revealed before guessing)');
+    L.push('(&* = the opening letters of the title were revealed before guessing)');
     return L.join('\n');
   }
 
