@@ -13,6 +13,17 @@ Six tries. A wrong guess or a skip unlocks the next clip length:
 - **Daily** — the same song for everyone, changing at midnight. A seeded permutation means no repeats until all 77 songs have been used.
 - **Endless** — random, forever, and it doesn't touch your daily stats.
 - **Insane `^`** — a much tighter ladder over seven tries: `0.1 → 0.5 → 0.6 → 1 → 1.2 → 1.5 → 2s`. Pays roughly triple, and wins are tagged `^`.
+- **Laufi `~`** — lofi only, with soundalike decoys. Normal ladder, top pay rate, wins tagged `~`.
+
+Insane and Laufi give you **no hints**.
+
+### Laufi decoys
+
+Laufi plays only lofi-flavoured tracks, and the pool is her four Lofi Versions plus 21 tracks from artists in the same hushed jazz/bedroom-pop lane — Lauren Rose, Samara Joy, Melody Gardot, Madeleine Peyroux, Cathy Jain, Sarah Kinsley, Olivia Dean, Rachael Yamagata, beabadoobee.
+
+The pick is weighted so roughly **half the rounds are actually Laufey**; otherwise 21 decoys would drown out four real songs. So the question each round is both "which song is this?" and "is this even her?". The dropdown lists the artist next to each title, and the reveal says outright whether you just heard a Lofi Version or a decoy.
+
+Decoy titles that would collide with a Laufey song are dropped at build time — that's why Samara Joy's "Misty" isn't in there.
 
 ### Lofi versions
 
@@ -52,7 +63,13 @@ Insane `^`:
 |------|------|------|----|------|------|----|--------|
 | 300 | 240 | 190 | 150 | 115 | 85 | 60 | 0 |
 
-Since insane pays about triple, it dominates the top of the leaderboard — the `^` tag is there so you can tell at a glance which runs were earned the hard way.
+Laufi `~` (top rate, decoys, no hints):
+
+| 1s | 2s | 4s | 7s | 11s | 16s | missed |
+|----|----|----|----|-----|-----|--------|
+| 400 | 320 | 250 | 190 | 145 | 105 | 0 |
+
+Since insane and laufi pay several times normal, they dominate the top of the leaderboard — the `^` tag is there so you can tell at a glance which runs were earned the hard way.
 
 ### Leaderboard
 

@@ -3,7 +3,7 @@
 
 Run this when Laufey releases something new:  python3 build-songs.py
 """
-import json, re, urllib.request
+import json, re, time, urllib.parse, urllib.request
 
 ARTIST_ID = 1504424880  # Laufey
 URLS = [
@@ -13,6 +13,34 @@ URLS = [
 ]
 
 LOFI = re.compile(r'\(lofi version\)', re.I)
+
+# Soundalikes for Laufi mode: same hushed jazz/bedroom-pop lane, not Laufey.
+# Titles that collide with a Laufey song (e.g. Samara Joy's "Misty") are left
+# out so the dropdown never shows two identical entries.
+DECOY_TRACKS = [
+    ("Lauren Rose", "Chills"),
+    ("Lauren Rose", "Stuck On My Mind"),
+    ("Lauren Rose", "Mystery of Life"),
+    ("Lauren Rose", "I Should Care"),
+    ("Samara Joy", "Guess Who I Saw Today"),
+    ("Samara Joy", "Can't Get Out of This Mood"),
+    ("Samara Joy", "Stardust"),
+    ("Samara Joy", "I Miss You So"),
+    ("Melody Gardot", "Baby I'm a Fool"),
+    ("Melody Gardot", "If the Stars Were Mine"),
+    ("Melody Gardot", "Worrisome Heart"),
+    ("Madeleine Peyroux", "Don't Wait Too Long"),
+    ("Madeleine Peyroux", "Dance Me To the End of Love"),
+    ("Madeleine Peyroux", "The Summer Wind"),
+    ("Cathy Jain", "green screen"),
+    ("Cathy Jain", "cool kid"),
+    ("Sarah Kinsley", "The King"),
+    ("Sarah Kinsley", "Karma"),
+    ("Olivia Dean", "The Hardest Part"),
+    ("Rachael Yamagata", "Be Be Your Love"),
+    ("beabadoobee", "Glue Song"),
+    ("beabadoobee", "The Perfect Pair"),
+]
 
 # Versions that would either duplicate a song or make it unfairly hard to name.
 BAD_COLLECTION = re.compile(r'instrumental|sped up|remix', re.I)
@@ -80,7 +108,51 @@ def entry(key, t):
     return s
 
 songs = sorted((entry(k, t) for k, t in best.items()), key=lambda s: s['title'].lower())
+titles_taken = {norm(s['title']) for s in songs}
+
+
+def fetch_decoy(artist, title):
+    """Find one soundalike track, matching on both artist and title."""
+    q = urllib.parse.quote(f'{artist} {title}')
+    url = f'https://itunes.apple.com/search?term={q}&entity=song&limit=15&country=US'
+    for attempt in range(5):
+        try:
+            results = json.load(urllib.request.urlopen(url, timeout=20))['results']
+            break
+        except Exception:
+            time.sleep(4 * (attempt + 1))     # iTunes rate-limits bursts of searches
+    else:
+        print(f'  ! lookup failed: {artist} — {title}')
+        return None
+    for r in results:
+        if not r.get('previewUrl'): continue
+        if r['artistName'].lower() != artist.lower(): continue
+        if norm(r['trackName']) != norm(title): continue
+        return {
+            'title': tidy(r['trackName']),
+            'artist': r['artistName'],
+            'album': tidy(r['collectionName']),
+            'year': r.get('releaseDate', '????')[:4],
+            'art': r['artworkUrl100'].replace('100x100', '400x400'),
+            'preview': r['previewUrl'],
+        }
+    print(f'  ! no match: {artist} — {title}')
+    return None
+
+
+decoys = []
+for artist, title in DECOY_TRACKS:
+    d = fetch_decoy(artist, title)
+    if not d: continue
+    if norm(d['title']) in titles_taken:          # would duplicate a Laufey entry
+        print(f'  ! title clashes with a Laufey song, skipping: {d["title"]}')
+        continue
+    decoys.append(d)
+    titles_taken.add(norm(d['title']))
+    time.sleep(2.0)
+decoys.sort(key=lambda d: d['title'].lower())
 
 with open('songs.js', 'w') as f:
     f.write('const SONGS = ' + json.dumps(songs, ensure_ascii=False, separators=(',', ':')) + ';\n')
-print(f'wrote songs.js — {len(songs)} songs')
+    f.write('const DECOYS = ' + json.dumps(decoys, ensure_ascii=False, separators=(',', ':')) + ';\n')
+print(f'wrote songs.js — {len(songs)} songs, {len(decoys)} decoys')
