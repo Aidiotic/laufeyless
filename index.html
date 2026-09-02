@@ -662,7 +662,8 @@
         : S.lofi ? ' · you heard the Lofi Version' : '');
     el.fullAudio.src = S.mode === 'insane' && S.lofi ? song.lofi : song.preview;
 
-    const fresh = S.mode === 'endless' || stats.lastDay !== S.day;
+    // Only Daily is once-per-day; every other mode always records a run.
+    const fresh = S.mode !== 'daily' || stats.lastDay !== S.day;
     if (S.mode === 'daily' && fresh){
       stats.played++;
       if (won){ stats.wins++; stats.dist[S.rows.length - 1]++; stats.streak++; stats.max = Math.max(stats.max, stats.streak); }
