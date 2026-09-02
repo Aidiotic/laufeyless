@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Laufeyless — a Laufey song guessing game</title>
+<meta name="description" content="Guess the Laufey song from a one-second clip. A new song every day.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FBF3E7; --cream-2:#F4E7D5; --ink:#2B1B2A; --ink-soft:#6B5566;
+    --plum:#5A2E4D; --gold:#C08B3E; --blush:#E4A9AE; --sage:#7C9070;
+    --line:rgba(43,27,42,.14); --shadow:0 1px 2px rgba(43,27,42,.06),0 8px 28px rgba(43,27,42,.09);
+    --serif:'Fraunces',Georgia,'Times New Roman',serif;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1100px 620px at 12% -8%, #FFF9F0 0%, transparent 62%),
+      radial-gradient(900px 520px at 92% 4%, #F7E4E6 0%, transparent 58%),
+      var(--cream);
+    background-attachment:fixed;
+    color:var(--ink); font-family:var(--sans);
+    min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:560px;margin:0 auto;padding:22px 18px 60px}
+
+  header{text-align:center;margin-bottom:20px;position:relative}
+  .brand{
+    font-family:var(--serif); font-weight:600; font-size:clamp(34px,9vw,50px);
+    letter-spacing:-.02em; line-height:1; margin:0; color:var(--plum);
+  }
+  .brand em{font-style:italic;color:var(--gold)}
+  .tagline{font-size:12.5px;color:var(--ink-soft);margin-top:8px;letter-spacing:.03em}
+  .rule{width:52px;height:1px;background:var(--gold);opacity:.55;margin:14px auto 0}
+
+  .toolbar{position:absolute;top:2px;right:0;display:flex;gap:6px}
+  .icon-btn{
+    background:transparent;border:1px solid var(--line);border-radius:9px;
+    width:32px;height:32px;cursor:pointer;color:var(--ink-soft);font-size:14px;
+    display:grid;place-items:center;transition:.15s;
+  }
+  .icon-btn:hover{background:#fff;color:var(--plum);border-color:var(--plum)}
+
+  .modes{display:flex;gap:4px;justify-content:center;margin:16px 0 18px;
+    background:rgba(255,255,255,.6);border:1px solid var(--line);border-radius:999px;padding:4px;width:fit-content;margin-inline:auto}
+  .mode{
+    border:0;background:transparent;font-family:var(--sans);font-size:12.5px;font-weight:500;
+    padding:7px 16px;border-radius:999px;cursor:pointer;color:var(--ink-soft);transition:.18s;letter-spacing:.02em
+  }
+  .mode[aria-pressed="true"]{background:var(--plum);color:#FFF6E9;box-shadow:0 2px 8px rgba(90,46,77,.25)}
+
+  .card{background:rgba(255,255,255,.72);border:1px solid var(--line);border-radius:18px;
+    padding:18px;box-shadow:var(--shadow);backdrop-filter:blur(6px)}
+
+  /* guesses */
+  .guesses{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+  .row{
+    min-height:42px;display:flex;align-items:center;gap:10px;padding:0 14px;
+    border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.55);
+    font-size:13.5px;color:var(--ink);transition:.2s;
+  }
+  .row.empty{color:transparent}
+  .row .mark{font-size:12px;width:14px;flex:0 0 14px;text-align:center}
+  .row .txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row.skip{color:var(--ink-soft);font-style:italic;background:rgba(255,255,255,.35)}
+  .row.skip .mark{color:var(--ink-soft)}
+  .row.wrong{background:rgba(228,169,174,.22);border-color:rgba(197,90,100,.35)}
+  .row.wrong .mark{color:#B4535D}
+  .row.right{background:rgba(124,144,112,.2);border-color:rgba(124,144,112,.5);font-weight:600}
+  .row.right .mark{color:var(--sage)}
+  .row.active{border-color:var(--plum);box-shadow:0 0 0 3px rgba(90,46,77,.09)}
+
+  /* player */
+  .player{margin-bottom:14px}
+  .track{position:relative;height:9px;border-radius:99px;background:var(--cream-2);overflow:hidden;cursor:default}
+  .unlocked{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#EBD9BE,#E4C79C);width:0;transition:width .45s cubic-bezier(.4,0,.2,1)}
+  .played{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--plum),#8A4A72);width:0}
+  .ticks{position:relative;height:14px;margin-top:5px}
+  .tick{position:absolute;top:0;transform:translateX(-50%);font-size:9.5px;color:var(--ink-soft);letter-spacing:.02em}
+  .tick.on{color:var(--gold);font-weight:600}
+
+  .controls{display:flex;align-items:center;gap:12px;margin-top:12px}
+  .play{
+    width:50px;height:50px;border-radius:50%;border:0;cursor:pointer;flex:0 0 50px;
+    background:var(--plum);color:#FFF6E9;font-size:17px;display:grid;place-items:center;
+    box-shadow:0 4px 14px rgba(90,46,77,.3);transition:.16s;
+  }
+  .play:hover{transform:scale(1.05)}
+  .play:active{transform:scale(.96)}
+  .play:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .time{font-family:var(--serif);font-size:14px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  .hint{font-size:11.5px;color:var(--ink-soft);margin-left:auto;text-align:right;line-height:1.4}
+
+  /* input */
+  .searchbox{position:relative;margin-top:4px}
+  input[type=text]{
+    width:100%;padding:13px 15px;border:1px solid var(--line);border-radius:11px;
+    font-family:var(--sans);font-size:14.5px;background:#fff;color:var(--ink);outline:none;transition:.16s;
+  }
+  input[type=text]:focus{border-color:var(--plum);box-shadow:0 0 0 3px rgba(90,46,77,.1)}
+  input[type=text]::placeholder{color:#B3A0AE}
+  .ac{
+    position:absolute;left:0;right:0;bottom:calc(100% + 6px);background:#fff;border:1px solid var(--line);
+    border-radius:12px;box-shadow:0 12px 34px rgba(43,27,42,.16);max-height:230px;overflow-y:auto;z-index:20;display:none
+  }
+  .ac.show{display:block}
+  .ac div{padding:10px 14px;font-size:13.5px;cursor:pointer;border-bottom:1px solid rgba(43,27,42,.06)}
+  .ac div:last-child{border-bottom:0}
+  .ac div small{color:var(--ink-soft);font-size:11px;margin-left:6px}
+  .ac div.sel,.ac div:hover{background:var(--cream)}
+
+  .actions{display:flex;gap:8px;margin-top:10px}
+  .btn{
+    flex:1;padding:12px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.7);
+    font-family:var(--sans);font-size:13.5px;font-weight:500;cursor:pointer;color:var(--ink-soft);transition:.16s
+  }
+  .btn:hover{background:#fff;color:var(--ink)}
+  .btn.primary{background:var(--plum);border-color:var(--plum);color:#FFF6E9;font-weight:600;flex:1.4}
+  .btn.primary:hover{background:#6C3A5D;color:#FFF6E9}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+
+  /* result */
+  .result{display:none;text-align:center;animation:rise .5s cubic-bezier(.2,.8,.2,1)}
+  .result.show{display:block}
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  .verdict{font-family:var(--serif);font-size:21px;font-weight:600;color:var(--plum);margin:0 0 14px}
+  .art{width:150px;height:150px;border-radius:14px;box-shadow:0 10px 30px rgba(43,27,42,.24);display:block;margin:0 auto 14px}
+  .song-title{font-family:var(--serif);font-size:23px;font-weight:600;margin:0 0 4px;line-height:1.2}
+  .song-meta{font-size:12.5px;color:var(--ink-soft);margin-bottom:16px}
+  .full-player{width:100%;margin:0 auto 16px;max-width:340px;height:36px}
+
+  /* stats */
+  .stats{display:flex;justify-content:center;gap:22px;margin:18px 0 6px}
+  .stat b{display:block;font-family:var(--serif);font-size:24px;font-weight:600;color:var(--plum);line-height:1.1}
+  .stat span{font-size:10.5px;color:var(--ink-soft);letter-spacing:.05em;text-transform:uppercase}
+  .dist{margin:14px 0 4px;font-size:11px}
+  .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .bar-row i{font-style:normal;color:var(--ink-soft);width:12px;text-align:right}
+  .bar{background:var(--cream-2);border-radius:4px;height:18px;min-width:22px;display:flex;align-items:center;
+    justify-content:flex-end;padding:0 6px;color:var(--ink-soft);font-size:10.5px;transition:width .5s}
+  .bar.hi{background:var(--plum);color:#FFF6E9}
+
+  dialog{border:0;border-radius:18px;padding:26px;max-width:410px;width:calc(100% - 36px);
+    background:var(--cream);box-shadow:0 24px 70px rgba(43,27,42,.35);color:var(--ink)}
+  dialog::backdrop{background:rgba(43,27,42,.42);backdrop-filter:blur(3px)}
+  dialog h2{font-family:var(--serif);font-size:21px;margin:0 0 12px;color:var(--plum)}
+  dialog p,dialog li{font-size:13.5px;line-height:1.6;color:var(--ink-soft)}
+  dialog ol{padding-left:18px;margin:10px 0}
+  .close{margin-top:14px;width:100%}
+  footer{text-align:center;font-size:11px;color:var(--ink-soft);margin-top:26px;line-height:1.7}
+  footer a{color:var(--plum)}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:var(--ink);color:var(--cream);
+    padding:10px 18px;border-radius:99px;font-size:13px;opacity:0;pointer-events:none;transition:.3s;z-index:99}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="toolbar">
+      <button class="icon-btn" id="howBtn" title="How to play" aria-label="How to play">?</button>
+      <button class="icon-btn" id="statsBtn" title="Statistics" aria-label="Statistics">▦</button>
+    </div>
+    <h1 class="brand">Lauf<em>ey</em>less</h1>
+    <div class="tagline">Name that Laufey song in as few seconds as you can.</div>
+    <div class="rule"></div>
+  </header>
+
+  <div class="modes">
+    <button class="mode" id="modeDaily" aria-pressed="true">Daily</button>
+    <button class="mode" id="modeEndless" aria-pressed="false">Endless</button>
+  </div>
+
+  <div class="card">
+    <div class="guesses" id="guesses"></div>
+
+    <div class="player">
+      <div class="track"><div class="unlocked" id="unlocked"></div><div class="played" id="played"></div></div>
+      <div class="ticks" id="ticks"></div>
+      <div class="controls">
+        <button class="play" id="playBtn" aria-label="Play clip">▶</button>
+        <div class="time" id="time">0.0 / 1.0s</div>
+        <div class="hint" id="hint">Clip unlocks as you guess</div>
+      </div>
+    </div>
+
+    <div id="gameArea">
+      <div class="searchbox">
+        <div class="ac" id="ac"></div>
+        <input type="text" id="guess" placeholder="Search a Laufey song…" autocomplete="off"
+               autocorrect="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <div class="actions">
+        <button class="btn" id="skipBtn">Skip (+1s)</button>
+        <button class="btn primary" id="submitBtn" disabled>Submit</button>
+      </div>
+    </div>
+
+    <div class="result" id="result">
+      <p class="verdict" id="verdict"></p>
+      <img class="art" id="art" alt="" width="150" height="150">
+      <h2 class="song-title" id="rTitle"></h2>
+      <div class="song-meta" id="rMeta"></div>
+      <audio class="full-player" id="fullAudio" controls preload="none"></audio>
+      <div class="actions">
+        <button class="btn primary" id="shareBtn">Share result</button>
+        <button class="btn" id="nextBtn">Next song</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    30-second preview clips via the public iTunes catalogue. Unofficial fan project — all music © Laufey &amp; AWAL.
+  </footer>
+</div>
+
+<dialog id="howDlg">
+  <h2>How to play</h2>
+  <p>You get <b>one second</b> of a Laufey song. Guess it, or skip — either way the clip grows.</p>
+  <ol>
+    <li>Clip lengths: <b>1s → 2s → 4s → 7s → 11s → 16s</b></li>
+    <li>Six tries. A wrong guess or a skip unlocks the next length.</li>
+    <li><b>Daily</b> gives everyone the same song, changing at midnight. <b>Endless</b> is random, forever.</li>
+  </ol>
+  <p>Clips come from Apple's previews, so they usually start at the hook rather than the first note. Consider it a feature.</p>
+  <button class="btn close" onclick="howDlg.close()">Got it</button>
+</dialog>
+
+<dialog id="statsDlg">
+  <h2>Statistics</h2>
+  <div class="stats">
+    <div class="stat"><b id="sPlayed">0</b><span>Played</span></div>
+    <div class="stat"><b id="sWin">0%</b><span>Win rate</span></div>
+    <div class="stat"><b id="sStreak">0</b><span>Streak</span></div>
+    <div class="stat"><b id="sMax">0</b><span>Best</span></div>
+  </div>
+  <div class="dist" id="dist"></div>
+  <button class="btn close" onclick="statsDlg.close()">Close</button>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script src="songs.js"></script>
+<script>
+(function(){
+  'use strict';
+  const STEPS = [1, 2, 4, 7, 11, 16];
+  const MAX = STEPS[STEPS.length - 1];
+  const EPOCH = Date.UTC(2026, 0, 1);
+  const $ = id => document.getElementById(id);
+
+  const el = {
+    guesses:$('guesses'), unlocked:$('unlocked'), played:$('played'), ticks:$('ticks'),
+    playBtn:$('playBtn'), time:$('time'), hint:$('hint'), guess:$('guess'), ac:$('ac'),
+    skipBtn:$('skipBtn'), submitBtn:$('submitBtn'), gameArea:$('gameArea'), result:$('result'),
+    verdict:$('verdict'), art:$('art'), rTitle:$('rTitle'), rMeta:$('rMeta'), fullAudio:$('fullAudio'),
+    shareBtn:$('shareBtn'), nextBtn:$('nextBtn'), toast:$('toast'),
+    modeDaily:$('modeDaily'), modeEndless:$('modeEndless')
+  };
+
+  const norm = s => s.toLowerCase().replace(/[’']/g,"'").replace(/[^a-z0-9']+/g,' ').trim();
+  const TITLES = SONGS.map((s,i) => ({ i, title:s.title, key:norm(s.title) }));
+
+  // ---- deterministic daily pick: a seeded permutation, so no repeat for 76 days ----
+  function rng(seed){ let a = seed >>> 0; return () => { a ^= a<<13; a>>>=0; a ^= a>>17; a ^= a<<5; a>>>=0; return a/4294967296; }; }
+  function dayNumber(){ const n = new Date(); return Math.floor((Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) - EPOCH) / 864e5); }
+  function dailyIndex(day){
+    const N = SONGS.length, cycle = Math.floor(day / N), pos = ((day % N) + N) % N;
+    const order = [...Array(N).keys()], r = rng(cycle * 7919 + 104729);
+    for (let i = N - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    return order[pos];
+  }
+
+  // ---- persistence ----
+  const LS = {
+    get(k, d){ try { return JSON.parse(localStorage.getItem('laufeyless.' + k)) ?? d; } catch { return d; } },
+    set(k, v){ try { localStorage.setItem('laufeyless.' + k, JSON.stringify(v)); } catch {} }
+  };
+  let stats = LS.get('stats', { played:0, wins:0, streak:0, max:0, dist:[0,0,0,0,0,0], lastDay:null });
+
+  // ---- state ----
+  const audio = new Audio();
+  audio.preload = 'auto';
+  let S = null, playTimer = null, raf = null, playing = false;
+
+  function newGame(mode, restore){
+    const day = dayNumber();
+    const idx = mode === 'daily' ? dailyIndex(day)
+              : Math.floor(Math.random() * SONGS.length);
+    S = { mode, day, idx, rows:[], done:false, won:false };
+    if (restore) Object.assign(S, restore, { mode:'daily', day, idx });
+    audio.src = SONGS[S.idx].preview;
+    audio.load();
+    render();
+  }
+
+  const stage = () => Math.min(S.rows.length, STEPS.length - 1);
+  const limit = () => STEPS[stage()];
+
+  // ---- rendering ----
+  function render(){
+    el.guesses.innerHTML = '';
+    for (let i = 0; i < STEPS.length; i++){
+      const r = S.rows[i], d = document.createElement('div');
+      d.className = 'row ' + (r ? r.kind : (i === S.rows.length && !S.done ? 'active empty' : 'empty'));
+      const mark = r ? (r.kind === 'right' ? '✓' : r.kind === 'skip' ? '›' : '✕') : '';
+      d.innerHTML = '<span class="mark">' + mark + '</span><span class="txt">' +
+        (r ? (r.kind === 'skip' ? 'Skipped' : escapeHtml(r.text)) : '·') + '</span>';
+      el.guesses.appendChild(d);
+    }
+
+    const lim = S.done ? MAX : limit();
+    el.unlocked.style.width = (lim / MAX * 100) + '%';
+    el.ticks.innerHTML = STEPS.map(s =>
+      '<span class="tick' + (s <= lim ? ' on' : '') + '" style="left:' + (s / MAX * 100) + '%">' + s + 's</span>'
+    ).join('');
+    el.time.textContent = '0.0 / ' + lim.toFixed(1) + 's';
+    el.hint.innerHTML = S.done ? 'Full 30s preview below'
+      : (STEPS.length - S.rows.length) + ' ' + (STEPS.length - S.rows.length === 1 ? 'try' : 'tries') + ' left';
+
+    el.skipBtn.textContent = S.rows.length >= STEPS.length - 1
+      ? 'Give up' : 'Skip (+' + (STEPS[stage() + 1] - lim) + 's)';
+
+    el.modeDaily.setAttribute('aria-pressed', S.mode === 'daily');
+    el.modeEndless.setAttribute('aria-pressed', S.mode === 'endless');
+    el.nextBtn.style.display = S.mode === 'daily' ? 'none' : '';
+  }
+
+  function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // ---- audio ----
+  function stopClip(){
+    clearTimeout(playTimer); cancelAnimationFrame(raf);
+    audio.pause(); playing = false;
+    el.playBtn.textContent = '▶';
+    el.played.style.width = '0%';
+    el.time.textContent = '0.0 / ' + (S ? (S.done ? MAX : limit()) : STEPS[0]).toFixed(1) + 's';
+  }
+
+  function playClip(){
+    if (playing) { stopClip(); return; }
+    const lim = S.done ? MAX : limit();
+    audio.currentTime = 0;
+    audio.play().then(() => {
+      playing = true;
+      el.playBtn.textContent = '❚❚';
+      playTimer = setTimeout(stopClip, lim * 1000 + 60);
+      const tick = () => {
+        if (!playing) return;
+        const t = Math.min(audio.currentTime, lim);
+        el.played.style.width = (t / MAX * 100) + '%';
+        el.time.textContent = t.toFixed(1) + ' / ' + lim.toFixed(1) + 's';
+        raf = requestAnimationFrame(tick);
+      };
+      tick();
+    }).catch(() => toast('Could not load the clip — check your connection.'));
+  }
+
+  // ---- autocomplete ----
+  let acList = [], acSel = -1, chosen = null;
+  function updateAC(){
+    const q = norm(el.guess.value);
+    chosen = null; el.submitBtn.disabled = true;
+    if (!q){ el.ac.classList.remove('show'); return; }
+    const guessed = new Set(S.rows.filter(r => r.kind !== 'skip').map(r => norm(r.text)));
+    acList = TITLES.filter(t => t.key.includes(q) && !guessed.has(t.key))
+                   .sort((a,b) => a.key.indexOf(q) - b.key.indexOf(q) || a.key.localeCompare(b.key))
+                   .slice(0, 40);
+    if (!acList.length){ el.ac.classList.remove('show'); return; }
+    acSel = 0;
+    el.ac.innerHTML = acList.map((t, n) =>
+      '<div data-n="' + n + '"' + (n === acSel ? ' class="sel"' : '') + '>' + escapeHtml(t.title) +
+      '<small>' + escapeHtml(SONGS[t.i].album) + '</small></div>').join('');
+    el.ac.classList.add('show');
+    syncChosen();
+  }
+  function syncChosen(){
+    const t = acList[acSel];
+    chosen = t && norm(el.guess.value) === t.key ? t : null;
+    // allow submit whenever a suggestion is highlighted
+    el.submitBtn.disabled = !acList[acSel];
+  }
+  function pick(n){
+    acSel = n; const t = acList[n]; if (!t) return;
+    el.guess.value = t.title; el.ac.classList.remove('show');
+    chosen = t; el.submitBtn.disabled = false; el.guess.focus();
+  }
+  function markSel(){
+    [...el.ac.children].forEach((c, n) => c.classList.toggle('sel', n === acSel));
+    const s = el.ac.children[acSel]; if (s) s.scrollIntoView({ block:'nearest' });
+    el.submitBtn.disabled = !acList[acSel];
+  }
+
+  // ---- turns ----
+  function submit(){
+    const t = chosen || acList[acSel];
+    if (!t || S.done) return;
+    const right = t.i === S.idx;
+    S.rows.push({ kind: right ? 'right' : 'wrong', text: t.title });
+    el.guess.value = ''; el.ac.classList.remove('show'); acList = []; chosen = null; el.submitBtn.disabled = true;
+    stopClip();
+    if (right) finish(true);
+    else if (S.rows.length >= STEPS.length) finish(false);
+    else { render(); save(); setTimeout(playClip, 220); }
+  }
+
+  function skip(){
+    if (S.done) return;
+    S.rows.push({ kind:'skip', text:'Skipped' });
+    stopClip();
+    if (S.rows.length >= STEPS.length) finish(false);
+    else { render(); save(); setTimeout(playClip, 220); }
+  }
+
+  function finish(won){
+    S.done = true; S.won = won;
+    const song = SONGS[S.idx];
+    render();
+    el.gameArea.style.display = 'none';
+    el.result.classList.add('show');
+    el.verdict.textContent = won
+      ? ['Perfect ear.','Nailed it.','Lovely.','Got there.','Just in time.','Phew — last try.'][S.rows.length - 1]
+      : 'Not this time.';
+    el.art.src = song.art; el.art.alt = song.album + ' cover art';
+    el.rTitle.textContent = song.title;
+    el.rMeta.textContent = song.artist + ' · ' + song.album + ' · ' + song.year;
+    el.fullAudio.src = song.preview;
+
+    if (S.mode === 'daily' && stats.lastDay !== S.day){
+      stats.played++;
+      if (won){ stats.wins++; stats.dist[S.rows.length - 1]++; stats.streak++; stats.max = Math.max(stats.max, stats.streak); }
+      else stats.streak = 0;
+      stats.lastDay = S.day;
+      LS.set('stats', stats);
+    }
+    save();
+    setTimeout(() => statsDlg.showModal(), 900);
+    drawStats();
+  }
+
+  function save(){
+    if (S.mode !== 'daily') return;
+    LS.set('daily', { day:S.day, rows:S.rows, done:S.done, won:S.won });
+  }
+
+  // ---- stats + share ----
+  function drawStats(){
+    $('sPlayed').textContent = stats.played;
+    $('sWin').textContent = stats.played ? Math.round(stats.wins / stats.played * 100) + '%' : '0%';
+    $('sStreak').textContent = stats.streak;
+    $('sMax').textContent = stats.max;
+    const top = Math.max(1, ...stats.dist);
+    $('dist').innerHTML = stats.dist.map((v, i) =>
+      '<div class="bar-row"><i>' + (i + 1) + '</i><div class="bar' +
+      (S && S.done && S.won && S.rows.length === i + 1 ? ' hi' : '') +
+      '" style="width:' + (14 + v / top * 78) + '%">' + v + '</div></div>').join('');
+  }
+
+  function shareText(){
+    const squares = S.rows.map(r => r.kind === 'right' ? '🟩' : r.kind === 'skip' ? '⬜' : '🟥').join('');
+    const pad = '⬛'.repeat(Math.max(0, STEPS.length - S.rows.length));
+    const label = S.mode === 'daily' ? 'Laufeyless #' + S.day : 'Laufeyless (endless)';
+    return label + ' · ' + (S.won ? STEPS[S.rows.length - 1] + 's' : 'X') + '\n' + squares + pad;
+  }
+
+  function toast(msg){
+    el.toast.textContent = msg; el.toast.classList.add('show');
+    setTimeout(() => el.toast.classList.remove('show'), 2200);
+  }
+
+  // ---- events ----
+  el.playBtn.addEventListener('click', playClip);
+  el.skipBtn.addEventListener('click', skip);
+  el.submitBtn.addEventListener('click', submit);
+  el.guess.addEventListener('input', updateAC);
+  el.guess.addEventListener('focus', () => { if (el.guess.value) updateAC(); });
+  el.guess.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown'){ e.preventDefault(); acSel = Math.min(acSel + 1, acList.length - 1); markSel(); }
+    else if (e.key === 'ArrowUp'){ e.preventDefault(); acSel = Math.max(acSel - 1, 0); markSel(); }
+    else if (e.key === 'Enter'){
+      e.preventDefault();
+      if (el.ac.classList.contains('show') && acList[acSel] && norm(el.guess.value) !== acList[acSel].key) pick(acSel);
+      else submit();
+    } else if (e.key === 'Escape') el.ac.classList.remove('show');
+  });
+  el.ac.addEventListener('mousedown', e => {
+    const d = e.target.closest('[data-n]'); if (d){ e.preventDefault(); pick(+d.dataset.n); }
+  });
+  document.addEventListener('click', e => { if (!e.target.closest('.searchbox')) el.ac.classList.remove('show'); });
+
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && e.target !== el.guess && !document.querySelector('dialog[open]')){
+      e.preventDefault(); playClip();
+    }
+  });
+
+  el.shareBtn.addEventListener('click', async () => {
+    const txt = shareText();
+    try { await navigator.clipboard.writeText(txt); toast('Result copied'); }
+    catch { toast(txt.replace('\n', ' ')); }
+  });
+
+  function start(mode){
+    stopClip();
+    el.gameArea.style.display = '';
+    el.result.classList.remove('show');
+    el.guess.value = ''; el.ac.classList.remove('show'); acList = []; chosen = null; el.submitBtn.disabled = true;
+    el.fullAudio.pause(); el.fullAudio.removeAttribute('src');
+    if (mode === 'daily'){
+      const saved = LS.get('daily', null);
+      newGame('daily', saved && saved.day === dayNumber() ? saved : null);
+      if (S.done) replayFinish();
+    } else newGame('endless');
+  }
+
+  function replayFinish(){
+    const song = SONGS[S.idx];
+    el.gameArea.style.display = 'none';
+    el.result.classList.add('show');
+    el.verdict.textContent = S.won ? 'Solved today.' : 'Today got away.';
+    el.art.src = song.art; el.art.alt = song.album + ' cover art';
+    el.rTitle.textContent = song.title;
+    el.rMeta.textContent = song.artist + ' · ' + song.album + ' · ' + song.year;
+    el.fullAudio.src = song.preview;
+    render();
+  }
+
+  el.modeDaily.addEventListener('click', () => start('daily'));
+  el.modeEndless.addEventListener('click', () => start('endless'));
+  el.nextBtn.addEventListener('click', () => start('endless'));
+  $('howBtn').addEventListener('click', () => howDlg.showModal());
+  $('statsBtn').addEventListener('click', () => { drawStats(); statsDlg.showModal(); });
+
+  start('daily');
+  drawStats();
+  if (!LS.get('seen', false)){ howDlg.showModal(); LS.set('seen', true); }
+})();
+</script>
+</body>
+</html>
